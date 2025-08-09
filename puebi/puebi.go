@@ -28,11 +28,9 @@ func SanitizeToPUEBI(s string) string {
 
 	// Kapitalisasi awal kalimat
 	s = capitalizeSentences(s)
-
-	// >>> Baru: pastikan nama setelah "Hai" huruf besar
 	s = fixGreetingNameCase(s)
-
-	// Turunkan kapital yang nyasar di tengah kalimat
+	/// >>> baru:
+	s = fixHonorificsCase(s)
 	s = decapitalizeMidSentence(s, defaultExceptions(), protectedHeads())
 
 	// Format Rupiah
@@ -221,8 +219,29 @@ func protectedHeads() map[string]bool {
 		"CV":          true,
 		"RS":          true, // Rumah Sakit
 		"Hai":         true,
-		"Anda":        true,
 	}
+}
+
+// 1) Tambah fungsi ini, panggil setelah capitalizeSentences & sebelum decap.
+func fixHonorificsCase(s string) string {
+	// Naikkan kata ganti/sapaan hormat ke kapital di mana pun.
+	// Gunakan boundary agar tidak mengubah bagian dari email/dll.
+	var rules = []struct {
+		re  *regexp.Regexp
+		rep string
+	}{
+		{regexp.MustCompile(`\banda\b`), "Anda"},
+		{regexp.MustCompile(`\bbapak\b`), "Bapak"},
+		{regexp.MustCompile(`\bibu\b`), "Ibu"},
+		{regexp.MustCompile(`\bsaudara\b`), "Saudara"},
+		{regexp.MustCompile(`\bsaudari\b`), "Saudari"},
+		{regexp.MustCompile(`\bengkau\b`), "Engkau"},
+		// tambah lain bila perlu
+	}
+	for _, r := range rules {
+		s = r.re.ReplaceAllString(s, r.rep)
+	}
+	return s
 }
 
 // Turunkan kapital di tengah kalimat (bukan akronim / bukan rangkaian Title Case / bukan setelah head proper-noun).
@@ -340,6 +359,13 @@ func decapitalizeMidSentence(s string, exceptions map[string]bool, heads map[str
 // (hindari memasukkan kata generik seperti "Bank" di sini; dilindungi via heads)
 func defaultExceptions() map[string]bool {
 	return map[string]bool{
+		"Anda":    true, // <— penting
+		"Bapak":   true,
+		"Ibu":     true,
+		"Saudara": true,
+		"Saudari": true,
+		"Engkau":  true,
+
 		"Indonesia": true,
 		"Jakarta":   true,
 		"Sahabat":   true,
