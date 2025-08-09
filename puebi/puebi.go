@@ -29,6 +29,9 @@ func SanitizeToPUEBI(s string) string {
 	// Kapitalisasi awal kalimat
 	s = capitalizeSentences(s)
 
+	// >>> Baru: pastikan nama setelah "Hai" huruf besar
+	s = fixGreetingNameCase(s)
+
 	// Turunkan kapital yang nyasar di tengah kalimat
 	s = decapitalizeMidSentence(s, defaultExceptions(), protectedHeads())
 
@@ -70,6 +73,63 @@ var (
 )
 
 /* ---------- Helpers ---------- */
+
+// TitleCase satu kata (huruf pertama besar, sisanya kecil)
+func titleWord(w string) string {
+	rs := []rune(w)
+	if len(rs) == 0 {
+		return w
+	}
+	rs[0] = unicode.ToUpper(rs[0])
+	for i := 1; i < len(rs); i++ {
+		rs[i] = unicode.ToLower(rs[i])
+	}
+	return string(rs)
+}
+
+// Memastikan kata/deret nama setelah "Hai" ditulis kapital.
+// Contoh: "Hai luqmanul hakim," -> "Hai Luqmanul Hakim,"
+func fixGreetingNameCase(s string) string {
+	// Ambil segmen setelah "Hai " sampai tanda baca penutup umum.
+	re := regexp.MustCompile(`\bHai\b\s+([^\n\r,.!?;:()]+)`)
+	return re.ReplaceAllStringFunc(s, func(match string) string {
+		// pecah jadi: "Hai " + sisa
+		parts := strings.SplitN(match, " ", 2)
+		if len(parts) < 2 {
+			return match
+		}
+		head := parts[0] // "Hai"
+		rest := parts[1]
+
+		// tokenisasi nama sampai sebelum tanda baca (sudah dipastikan oleh regex)
+		tokens := strings.Fields(rest)
+		if len(tokens) == 0 {
+			return match
+		}
+
+		// batasi 1–4 token pertama sebagai nama (umum: 1–3),
+		// selebihnya biarkan (mis. "Hai Agus segera ...")
+		limit := len(tokens)
+		if limit > 4 {
+			limit = 4
+		}
+		for i := 0; i < limit; i++ {
+			// hanya kapitalisasi token alfabet (abaikan angka/simbol)
+			allLetter := true
+			for _, r := range []rune(tokens[i]) {
+				if !unicode.IsLetter(r) && r != '\'' && r != '-' {
+					allLetter = false
+					break
+				}
+			}
+			if allLetter {
+				tokens[i] = titleWord(tokens[i])
+			}
+		}
+
+		return head + " " + strings.Join(tokens, " ")
+	})
+}
 
 func normalizeSpaces(s string) string {
 	s = reMultiWS.ReplaceAllString(s, " ")
@@ -160,6 +220,7 @@ func protectedHeads() map[string]bool {
 		"PT":          true,
 		"CV":          true,
 		"RS":          true, // Rumah Sakit
+		"Hai":         true,
 	}
 }
 
