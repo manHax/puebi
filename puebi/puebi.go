@@ -221,6 +221,7 @@ func protectedHeads() map[string]bool {
 		"CV":          true,
 		"RS":          true, // Rumah Sakit
 		"Hai":         true,
+		"Anda":        true,
 	}
 }
 
