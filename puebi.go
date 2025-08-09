@@ -31,7 +31,7 @@ func normalizeSpaces(s string) string {
 	// Jadikan semua whitespace beruntun -> 1 spasi
 	ws := regexp.MustCompile(`\s+`)
 	s = ws.ReplaceAllString(s, " ")
-	// Hilangkan spasi di awal sebelum tanda baca penutup
+	// Hilangkan spasi sebelum tanda baca penutup
 	s = regexp.MustCompile(`\s+([,.;:!?])`).ReplaceAllString(s, "$1")
 	return s
 }
@@ -40,18 +40,20 @@ func fixPunctuationSpacing(s string) string {
 	// 1) Hilangkan spasi sebelum tanda baca umum
 	s = regexp.MustCompile(`\s+([,.;:!?])`).ReplaceAllString(s, "$1")
 
-	// 2) Pastikan ada satu spasi setelah , ; : ? ! (kecuali sebelum tanda tutup atau akhir)
-	s = regexp.MustCompile(`([,;:!?])(?!\s|$|\))`).ReplaceAllString(s, "$1 ")
+	// 2) Pastikan ada satu spasi setelah , ; : ? ! jika setelahnya bukan spasi/")" dan bukan akhir
+	//    Ganti: ([,;:!?])(?!\s|$|\))  -->  ([,;:!?])([^\s\)])
+	s = regexp.MustCompile(`([,;:!?])([^\s\)])`).ReplaceAllString(s, "$1 $2")
 
 	// 3) Titik: kalau titik akhir kalimat, beri spasi setelahnya (kecuali akhir/penutup)
-	// (hindari angka desimal sederhana: digit.digit)
-	s = regexp.MustCompile(`(?<!\d)\.(?!\d)(?!\s|$|\))`).ReplaceAllString(s, ". ")
+	//    Hindari angka desimal (digit.digit) dan ellipsis/“..”
+	//    Ganti: (?<!\d)\.(?!\d)(?!\s|$|\))  -->  (^|[^\d])\.([^\d\s\).])
+	s = regexp.MustCompile(`(^|[^\d])\.([^\d\s\).])`).ReplaceAllString(s, "$1. $2")
 
 	// 4) Kurung: tidak ada spasi setelah "(" dan tidak ada spasi sebelum ")"
 	s = regexp.MustCompile(`\(\s+`).ReplaceAllString(s, "(")
 	s = regexp.MustCompile(`\s+\)`).ReplaceAllString(s, ")")
 
-	// 5) Strip spasi ganda yang mungkin tercipta
+	// 5) Rapatkan spasi ganda yang mungkin tercipta
 	s = regexp.MustCompile(`\s{2,}`).ReplaceAllString(s, " ")
 	return s
 }
@@ -64,14 +66,14 @@ func fixCommonPrepositions(s string) string {
 		s = regexp.MustCompile(`\bke`+w+`\b`).ReplaceAllString(s, "ke "+w)
 	}
 
-	// "dirumah" → "di rumah", "dikantor" → "di kantor" (daftar kecil kata tempat umum)
+	// "dirumah" → "di rumah", "dikantor" → "di kantor" (contoh kata tempat umum)
 	places := []string{"rumah", "kantor", "sekolah", "pasar", "bank", "jalan", "masjid", "gereja", "kampus"}
 	for _, w := range places {
 		s = regexp.MustCompile(`\bdi`+w+`\b`).ReplaceAllString(s, "di "+w)
 		s = regexp.MustCompile(`\bke`+w+`\b`).ReplaceAllString(s, "ke "+w)
 	}
 
-	// “kepada” (bukan “ke pada”) & “daripada” (umumnya jadi satu)
+	// “kepada” (bukan “ke pada”) & “daripada”
 	s = regexp.MustCompile(`\b[Kk]e pada\b`).ReplaceAllString(s, "kepada")
 	s = regexp.MustCompile(`\b[Dd]ari pada\b`).ReplaceAllString(s, "daripada")
 
@@ -98,7 +100,6 @@ func capitalizeSentences(s string) string {
 	// Setelah tanda akhir kalimat
 	for idx := 0; idx < n; idx++ {
 		if r[idx] == '.' || r[idx] == '!' || r[idx] == '?' {
-			// cari huruf berikutnya
 			j := firstLetterIndex(r, idx+1)
 			if j >= 0 {
 				r[j] = unicode.ToUpper(r[j])
@@ -119,11 +120,21 @@ func firstLetterIndex(r []rune, start int) int {
 	return -1
 }
 
-// Optional: TitleCase untuk judul (bukan EYD wajib, tapi kadang berguna)
+// TitleCase sederhana tanpa strings.Title (yang deprecated)
 func TitleCase(s string) string {
-	return strings.Map(func(r rune) rune {
-		return r
-	}, strings.Title(strings.ToLower(s))) // deprecated, tapi cukup untuk contoh singkat
+	words := strings.Fields(s)
+	for i, w := range words {
+		rs := []rune(w)
+		if len(rs) == 0 {
+			continue
+		}
+		rs[0] = unicode.ToUpper(rs[0])
+		for j := 1; j < len(rs); j++ {
+			rs[j] = unicode.ToLower(rs[j])
+		}
+		words[i] = string(rs)
+	}
+	return strings.Join(words, " ")
 }
 
 // QuickCheck: periksa apakah string sudah punya kapital awal kalimat yang benar (opsional)
