@@ -406,7 +406,7 @@ func firstLetterIndex(r []rune, start int) int {
 }
 
 // Normalisasi format Rupiah:
-// - "rp 12.000", "Rp. 12.000", "RP    12.000" -> "Rp12.000"
+// - "rp 12.000", "Rp 12.000", "RP    12.000" -> "Rp12.000"
 // - "rp12.000" -> "Rp12.000"
 func fixIDRCurrency(s string) string {
 	s = reRpNumber.ReplaceAllString(s, "Rp$1")
